@@ -1,0 +1,82 @@
+services:
+    resource-db:
+        image: postgres:17-alpine
+        container_name: resource-db
+        environment:
+            POSTGRES_DB: ${RESOURCE_DB_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - "5432:5432"
+        volumes:
+            - ./init-scripts/resource-db:/docker-entrypoint-initdb.d/ # Mount initialization scripts
+
+    song-db:
+        image: postgres:17-alpine
+        container_name: song-db
+        environment:
+            POSTGRES_DB: ${SONG_DB_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - "5433:5432"
+        volumes:
+            - ./init-scripts/song-db:/docker-entrypoint-initdb.d/ # Mount initialization scripts
+
+    eureka-server:
+        build:
+            context: ./eureka-server
+            dockerfile: Dockerfile
+        container_name: eureka-server
+        ports:
+            - "8761:8761"
+        environment:
+            SERVER_PORT: 8761
+
+    resource-service:
+        build:
+            context: ./resource-service
+            dockerfile: Dockerfile
+        container_name: resource-service
+        ports:
+            - "${RESOURCE_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
+        environment:
+            SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+            SONG_SERVICE_URI: "http://song-service:8080"
+            SPRING_FLYWAY_ENABLED: false
+            DATABASE_HOST: ${RESOURCE_DB_HOST}
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+        depends_on:
+            resource-db:
+                condition: service_started
+            eureka-server:
+                condition: service_started
+
+    song-service:
+        build:
+            context: ./song-service
+            dockerfile: Dockerfile
+#        container_name: song-service
+        deploy:
+            mode: replicated
+            replicas: 2
+        ports:
+            - "8081-8082:${SERVICE_INTERNAL_PORT}"
+#        ports:
+#            - "${SERVICE_INTERNAL_PORT}"
+        environment:
+            SPRING_DATASOURCE_URL: ${SONG_DB_URL}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+            SPRING_FLYWAY_ENABLED: false
+            DATABASE_HOST: ${SONG_DB_HOST}
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+        depends_on:
+            song-db:
+                condition: service_started
+            eureka-server:
+                condition: service_started
