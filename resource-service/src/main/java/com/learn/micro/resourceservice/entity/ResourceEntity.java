@@ -23,7 +23,6 @@ public class ResourceEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
-    private byte[] resourceContent;
-
+    @Column(name = "s3_location", nullable = false)
+    private String s3Location;
 }

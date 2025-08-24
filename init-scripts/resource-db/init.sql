@@ -1,6 +1,6 @@
 -- Create the resource table
-CREATE TABLE IF NOT EXISTS resource
+CREATE TABLE resource
 (
-    id               SERIAL PRIMARY KEY,
-    resource_content BYTEA NOT NULL
+    id          SERIAL PRIMARY KEY,
+    s3_location VARCHAR(255) NOT NULL
 );

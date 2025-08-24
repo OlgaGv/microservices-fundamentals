@@ -1,5 +1,5 @@
 -- Create the song table
-CREATE TABLE IF NOT EXISTS song
+CREATE TABLE song
 (
     id       INTEGER      NOT NULL PRIMARY KEY,
     album    VARCHAR(255) NOT NULL,

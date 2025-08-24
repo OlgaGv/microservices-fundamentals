@@ -1,13 +1,13 @@
-package com.learn.micro.resourceservice.service;
+package com.learn.micro.resourceprocessor.service;
 
-import com.learn.micro.resourceservice.exception.GeneralFailureException;
-import com.learn.micro.resourceservice.model.MetadataTag;
-import com.learn.micro.resourceservice.model.ResourceMetadataDto;
+import com.learn.micro.resourceprocessor.exception.GeneralFailureException;
+import com.learn.micro.resourceprocessor.model.MetadataTag;
+import com.learn.micro.resourceprocessor.model.MetadataDto;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
-import lombok.AllArgsConstructor;
+
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -16,9 +16,11 @@ import org.apache.tika.sax.BodyContentHandler;
 import org.springframework.stereotype.Component;
 import org.xml.sax.SAXException;
 
+import lombok.AllArgsConstructor;
+
 @Component
 @AllArgsConstructor
-public class ResourceProcessor {
+public class MetadataService {
 
     public boolean isValidMp3(byte[] fileContent) {
         if (fileContent == null || fileContent.length == 0) {
@@ -29,21 +31,21 @@ public class ResourceProcessor {
         return "audio/mpeg".equalsIgnoreCase(fileType) || "audio/mp3".equalsIgnoreCase(fileType);
     }
 
-    public ResourceMetadataDto getResourceMetadata(byte[] fileContent) {
+    public MetadataDto extractMetadata(byte[] fileContent) {
         Metadata metadata = new Metadata();
         BodyContentHandler handler = new BodyContentHandler();
         Mp3Parser parser = new Mp3Parser();
 
         try (InputStream inputStream = new ByteArrayInputStream(fileContent)) {
             parser.parse(inputStream, handler, metadata, null);
-            return collectResourceMetadata(metadata);
+            return collectMetadata(metadata);
         } catch (IOException | TikaException | SAXException e) {
             throw new GeneralFailureException(e.getMessage());
         }
     }
 
-    private ResourceMetadataDto collectResourceMetadata(Metadata metadata) {
-        return new ResourceMetadataDto(
+    private MetadataDto collectMetadata(Metadata metadata) {
+        return new MetadataDto(
                 metadata.get(MetadataTag.NAME.getKey()),
                 metadata.get(MetadataTag.ARTIST.getKey()),
                 metadata.get(MetadataTag.ALBUM.getKey()),
