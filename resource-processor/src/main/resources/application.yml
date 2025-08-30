@@ -1,5 +1,23 @@
 spring:
     application:
         name: resource-processor
+    kafka:
+        bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+        admin:
+            auto-create: true
+        topic: resource-events
+        consumer:
+            group-id: resource-processor
+            key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        producer:
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.apache.kafka.common.serialization.StringSerializer
 server:
-    port: 8073
+    port: ${RESOURCE_PROCESSOR_PORT:8073}
+
+services:
+    resource-service:
+        url: ${RESOURCE_SERVICE_URL:http://localhost:8071}
+    song-service:
+        url: ${SONG_SERVICE_URL:http://localhost:8072}

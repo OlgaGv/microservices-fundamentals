@@ -6,4 +6,11 @@ public class GeneralFailureException extends RuntimeException {
         super(message);
     }
 
+    public GeneralFailureException(Throwable cause) {
+        super(cause);
+    }
+
+    public GeneralFailureException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

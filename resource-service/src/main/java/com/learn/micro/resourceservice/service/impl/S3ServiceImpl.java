@@ -1,14 +1,15 @@
 package com.learn.micro.resourceservice.service.impl;
 
-import com.learn.micro.resourceservice.configutarion.AwsProperties;
 import com.learn.micro.resourceservice.exception.GeneralFailureException;
 import com.learn.micro.resourceservice.service.S3Service;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -22,44 +23,65 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 public class S3ServiceImpl implements S3Service {
 
     private final S3Client s3Client;
-    private final AwsProperties awsProperties;
 
     @Value("${aws.s3-properties.bucket}")
     private String bucketName;
 
+    private final RetryTemplate retryTemplate = RetryTemplate.builder()
+        .maxAttempts(3)
+        .fixedBackoff(2000)
+        .retryOn(S3Exception.class)
+        .retryOn(IOException.class)
+        .build();
+
     public String uploadMp3File(byte[] fileContent) {
-        String s3Key = UUID.randomUUID() + ".mp3";
-        PutObjectRequest request = PutObjectRequest.builder()
+        return retryTemplate.execute(context -> {
+            String s3Key = UUID.randomUUID() + ".mp3";
+            PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(s3Key)
                 .contentType("audio/mpeg")
                 .build();
-        s3Client.putObject(request, RequestBody.fromBytes(fileContent));
-        return "s3://" + bucketName + "/" + s3Key;
+            s3Client.putObject(request, RequestBody.fromBytes(fileContent));
+            log.info("Uploaded file to S3: {}", s3Key);
+            return "s3://" + bucketName + "/" + s3Key;
+        }, context -> {
+            int totalAttempts = context.getRetryCount() + 1;
+            log.error("Failed to upload file to S3 after {} attempts", totalAttempts);
+            throw new GeneralFailureException("Failed to upload file to S3 after retries");
+        });
     }
 
     public byte[] downloadMp3File(String s3Location) {
-        String s3Key = s3Location.substring(s3Location.lastIndexOf("/") + 1);
-        GetObjectRequest request = GetObjectRequest.builder()
-            .bucket(bucketName)
-            .key(s3Key)
-            .build();
-        try (InputStream inputStream = s3Client.getObject(request);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            inputStream.transferTo(outputStream);
-            return outputStream.toByteArray();
-        } catch (Exception e) {
-            throw new GeneralFailureException("Failed to download MP3 from S3", e);
-        }
+        return retryTemplate.execute(context -> {
+            String s3Key = s3Location.substring(s3Location.lastIndexOf("/") + 1);
+            GetObjectRequest request = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(s3Key)
+                .build();
+            try (InputStream inputStream = s3Client.getObject(request);
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+                inputStream.transferTo(outputStream);
+                log.info("Downloaded file from S3: {}", s3Key);
+                return outputStream.toByteArray();
+            } catch (IOException e) {
+                throw new GeneralFailureException("Failed to read object from S3", e);
+            }
+        }, context -> {
+            log.error("Failed to download file from S3 after {} attempts", context.getRetryCount());
+            throw new GeneralFailureException("Failed to download file from S3 after retries");
+        });
     }
 
     public void deleteMp3File(String s3Location) {
-        String s3Key = s3Location.substring(s3Location.lastIndexOf("/") + 1);
-        try {
+        retryTemplate.execute(context -> {
+            String s3Key = s3Location.substring(s3Location.lastIndexOf("/") + 1);
             s3Client.deleteObject(builder -> builder.bucket(bucketName).key(s3Key));
-        } catch (S3Exception e) {
-            log.error("Error deleting object: {}", e.awsErrorDetails().errorMessage());
-            throw new GeneralFailureException("Error deleting object from S3: " + e.awsErrorDetails().errorMessage());
-        }
+            log.info("Deleted file from S3: {}", s3Key);
+            return null;
+        }, context -> {
+            log.error("Failed to delete file from S3 after {} attempts", context.getRetryCount());
+            throw new GeneralFailureException("Failed to delete file from S3 after retries");
+        });
     }
 }

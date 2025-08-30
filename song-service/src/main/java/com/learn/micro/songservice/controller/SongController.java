@@ -31,6 +31,7 @@ public class SongController {
 
     @PostMapping
     public ResponseEntity<SaveSongResponse> save(@Validated @RequestBody SongDto songDto) {
+        log.info("Inside SongService Controller: Saving song: {}", songDto);
         SaveSongResponse result = songService.save(songDto);
         return ResponseEntity.ok(result);
     }
