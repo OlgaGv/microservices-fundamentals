@@ -1,7 +1,6 @@
 package com.learn.micro.resourceservice.service.impl;
 
-import com.learn.micro.resourceservice.configutarion.AwsProperties;
-import com.learn.micro.resourceservice.service.ResourceProcessor;
+import com.learn.micro.resourceservice.kafka.ResourceProducer;
 import com.learn.micro.resourceservice.service.S3Service;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -31,11 +30,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     private final ResourceRepository resourceRepository;
     private final ResourceMapper resourceMapper;
-    private final ResourceProcessor resourceProcessor;
+    private final ResourceProducer resourceProducer;
     private final MessageHelper messageHelper;
-
     private final S3Service s3Service;
-    private final AwsProperties awsProperties;
 
     @Override
     public GetResourceResponse findById(String id) {
@@ -58,7 +55,7 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     @Transactional
     public UploadResourceResponse save(byte[] fileContent) {
-        if (!resourceProcessor.isValidMp3(fileContent)) {
+        if (!isValidMp3(fileContent)) {
             throw new IllegalArgumentException(messageHelper.getMessage("validation.mp3.invalid"));
         }
         String s3Location;
@@ -68,6 +65,7 @@ public class ResourceServiceImpl implements ResourceService {
             ResourceEntity resourceEntity = new ResourceEntity();
             resourceEntity.setS3Location(s3Location);
             savedResource = resourceRepository.save(resourceEntity);
+            resourceProducer.publish(String.valueOf(savedResource.getId()));
         } catch (Exception e) {
             throw new GeneralFailureException(messageHelper.getMessage("server.error.general"));
         }
@@ -115,5 +113,13 @@ public class ResourceServiceImpl implements ResourceService {
                 .map(Integer::parseInt)
                 .filter(id -> id > 0)
                 .toList();
+    }
+
+    private boolean isValidMp3(byte[] fileContent) {
+        if (fileContent == null || fileContent.length == 0) {
+            return false;
+        }
+        // Check for "ID3" tag at the start (common in MP3 files)
+        return fileContent[0] == 'I' && fileContent[1] == 'D' && fileContent[2] == '3';
     }
 }

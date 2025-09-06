@@ -28,6 +28,7 @@ public class ResourceController {
     private final ResourceService resourceService;
     @GetMapping("/{id}")
     public ResponseEntity<byte[]> findById(@PathVariable("id") String id) {
+        log.info("Inside ResourceService Controller: Getting resource with Id: {}", id);
         GetResourceResponse result = resourceService.findById(id);
         return ResponseEntity.ok().contentType(MediaType.valueOf("audio/mpeg"))
             .body(result.content());
@@ -35,12 +36,14 @@ public class ResourceController {
 
     @PostMapping
     public ResponseEntity<UploadResourceResponse> upload(@RequestBody byte[] fileContent) {
+        log.info("Inside ResourceService Controller: Saving new resource");
         UploadResourceResponse result = resourceService.save(fileContent);
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping
     public ResponseEntity<DeleteResourceResponse> delete(@RequestParam("id") String id) {
+        log.info("Inside ResourceService Controller: Deleting resource with Id: {}", id);
         DeleteResourceResponse result = resourceService.delete(id);
         return ResponseEntity.ok(result);
     }
