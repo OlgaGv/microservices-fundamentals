@@ -18,24 +18,36 @@ public class ResourceConsumer {
     private final ResourceClient resourceClient;
     private final SongClient songClient;
 
-    @KafkaListener(topics = "${spring.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}",
+    @KafkaListener(
+        id = "resourceEventListener",
+        topics = "${spring.kafka.topic}",
+        groupId = "${spring.kafka.consumer.group-id}",
         containerFactory = "kafkaListenerContainerFactory")
     public void consume(String resourceId) {
         log.info("Inside ResourceConsumer: Received resourceId {} for processing", resourceId);
         try {
-            log.info("Inside ResourceConsumer: perform sync call to resource client");
-            byte[] fileContent = resourceClient.fetchResource(resourceId);
-            if (!metadataService.isValidMp3(fileContent)) {
-                log.warn("Invalid MP3 received for resource {}", resourceId);
-                return;
-            }
-            MetadataDto metadata = metadataService.extractMetadata(fileContent);
-            metadata.setId(Integer.valueOf(resourceId));
-            log.info("Inside ResourceConsumer: perform sync call to song client");
-            songClient.saveSongMetadata(metadata);
+            processCreateResource(resourceId);
         } catch (Exception e) {
             log.error("Failed to process resource {}: {}", resourceId, e.getMessage(), e);
+            throw e;
         }
+    }
+
+    private void processCreateResource(String resourceId) {
+        log.info("Inside ResourceConsumer: perform sync call to resource client");
+        byte[] fileContent = resourceClient.fetchResource(resourceId);
+        log.info("Fetched resourceId={} with payload size={} bytes", resourceId,
+            fileContent != null ? fileContent.length : 0);
+        if (!metadataService.isValidMp3(fileContent)) {
+            log.warn("Invalid MP3 received for resource {}", resourceId);
+            return;
+        }
+        MetadataDto metadata = metadataService.extractMetadata(fileContent);
+        metadata.setId(Integer.valueOf(resourceId));
+        log.info("Extracted metadata for resourceId={}: {}", resourceId, metadata);
+        log.info("Inside ResourceConsumer: perform sync call to song client");
+        songClient.saveSongMetadata(metadata);
+        log.info("Saved metadata for resourceId={} to SongService", resourceId);
     }
 
 //    @KafkaListener(topics = "${spring.kafka.topic}",
