@@ -1,0 +1,44 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    topic: resource-events
+
+services:
+  resource-service:
+    url: http://localhost:8071
+
+  song-service:
+    url: http://localhost:8072
+
+# Mock S3 configuration for tests
+aws:
+  s3-properties:
+    bucket: test-bucket
+  endpoint-url: http://localhost:4566
+  region: us-east-1
+  credentials:
+    access-key: test
+    secret-key: test
+
+logging:
+  level:
+    root: INFO
+    com.learn.micro.resourceservice: DEBUG
+    org.springframework.test: DEBUG
