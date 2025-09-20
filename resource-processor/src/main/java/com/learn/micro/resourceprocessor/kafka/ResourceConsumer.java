@@ -33,7 +33,7 @@ public class ResourceConsumer {
         }
     }
 
-    private void processCreateResource(String resourceId) {
+    public void processCreateResource(String resourceId) {
         log.info("Inside ResourceConsumer: perform sync call to resource client");
         byte[] fileContent = resourceClient.fetchResource(resourceId);
         log.info("Fetched resourceId={} with payload size={} bytes", resourceId,
