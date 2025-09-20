@@ -1,7 +1,15 @@
-services:
+x-app-healthcheck-depends: &app-healthcheck-depends
+    healthcheck:
+        test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 60s
 
+services:
     localstack:
         image: localstack/localstack
+        container_name: localstack
         ports:
             - "${AWS_PORT}:4566"
         environment:
@@ -9,6 +17,12 @@ services:
             - AWS_DEFAULT_REGION=us-east-1
         volumes:
             - ./localstack-volume:/var/lib/localstack
+        healthcheck:
+            test: ["CMD", "curl", -f, "http://localhost:4566/_localstack/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 20s
 
     resource-db:
         image: postgres:17-alpine
@@ -21,6 +35,11 @@ services:
             - "5432:5432"
         volumes:
             - ./init-scripts/resource-db:/docker-entrypoint-initdb.d/ # Mount initialization scripts
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${RESOURCE_DB_NAME}" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
     song-db:
         image: postgres:17-alpine
@@ -33,9 +52,14 @@ services:
             - "5433:5432"
         volumes:
             - ./init-scripts/song-db:/docker-entrypoint-initdb.d/ # Mount initialization scripts
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${SONG_DB_NAME}" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
     zookeeper:
-        image: bitnami/zookeeper:3.9
+        image: bitnami/zookeeper:latest
         container_name: zookeeper
         ports:
             - "2181:2181"
@@ -50,83 +74,105 @@ services:
         environment:
             - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
             - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-            - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+            - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
             - ALLOW_PLAINTEXT_LISTENER=yes
         depends_on:
             - zookeeper
+        healthcheck:
+            test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+            interval: 10s
+            timeout: 10s
+            retries: 10
 
-#    eureka-server:
-#        build:
-#            context: ./eureka-server
-#            dockerfile: Dockerfile
-#        container_name: eureka-server
-#        ports:
-#            - "8761:8761"
-#        environment:
-#            SERVER_PORT: 8761
+    eureka-server:
+        build:
+            context: ./eureka-server
+            dockerfile: Dockerfile
+        container_name: eureka-server
+        ports:
+            - "${EUREKA_SERVER_PORT}:8761"
+        environment:
+            SERVER_PORT: ${EUREKA_SERVER_PORT}
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
 
-#    resource-service:
-#        build:
-#            context: ./resource-service
-#            dockerfile: Dockerfile
-#        container_name: resource-service
-#        ports:
-#            - "${RESOURCE_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
-#        environment:
-#            SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
-#            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-#            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-#            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
-#            SONG_SERVICE_URI: "http://song-service:8080"
-#            SPRING_FLYWAY_ENABLED: false
-#            DATABASE_HOST: ${RESOURCE_DB_HOST}
-#            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
-#            AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
-#            AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
-#            AWS_SECRET_KEY: ${AWS_SECRET_KEY}
-#        depends_on:
-#            resource-db:
-#                condition: service_started
-#            eureka-server:
-#                condition: service_started
+    resource-service:
+        build:
+            context: ./resource-service
+            dockerfile: Dockerfile
+        container_name: resource-service
+        ports:
+            - "${RESOURCE_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
+        environment:
+            SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+            SONG_SERVICE_URI: "http://song-service:8080"
+            SPRING_FLYWAY_ENABLED: false
+            DATABASE_HOST: ${RESOURCE_DB_HOST}
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+            SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+            AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+            AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+            AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+        depends_on:
+            resource-db:
+                condition: service_healthy
+            kafka:
+                condition: service_healthy
+            eureka-server:
+                condition: service_healthy
+            localstack:
+                condition: service_healthy
+        <<: *app-healthcheck-depends
 
-#    song-service:
-#        build:
-#            context: ./song-service
-#            dockerfile: Dockerfile
-#        container_name: song-service
+    song-service:
+        build:
+            context: ./song-service
+            dockerfile: Dockerfile
+        container_name: song-service
 #        deploy:
 #            mode: replicated
 #            replicas: 2
 #        ports:
 #            - "8081-8082:${SERVICE_INTERNAL_PORT}"
-#        ports:
-#            - "${SONG_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
-#        environment:
-#            SPRING_DATASOURCE_URL: ${SONG_DB_URL}
-#            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-#            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-#            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
-#            SPRING_FLYWAY_ENABLED: false
-#            DATABASE_HOST: ${SONG_DB_HOST}
-#            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
-#        depends_on:
-#            song-db:
-#                condition: service_started
-#            eureka-server:
-#                condition: service_started
+        ports:
+            - "${SONG_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
+        environment:
+            SPRING_DATASOURCE_URL: ${SONG_DB_URL}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+            SPRING_FLYWAY_ENABLED: false
+            DATABASE_HOST: ${SONG_DB_HOST}
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+        depends_on:
+            song-db:
+                condition: service_healthy
+            eureka-server:
+                condition: service_healthy
+        <<: *app-healthcheck-depends
 
-#    resource-processor:
-#        build:
-#            context: ./resource-processor
-#            dockerfile: Dockerfile
-#        container_name: resource-processor
-#        environment:
-#            RESOURCE_SERVICE_URL: "http://resource-service:${SERVICE_INTERNAL_PORT}"
-#            SONG_SERVICE_URL: "http://song-service:${SERVICE_INTERNAL_PORT}"
-#            SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-#            SERVER_PORT: ${RESOURCE_PROCESSOR_PORT}
-#        depends_on:
-#            - resource-service
-#            - song-service
-#            - kafka
+    resource-processor:
+        build:
+            context: ./resource-processor
+            dockerfile: Dockerfile
+        container_name: resource-processor
+        environment:
+            RESOURCE_SERVICE_URL: "http://resource-service:${SERVICE_INTERNAL_PORT}"
+            SONG_SERVICE_URL: "http://song-service:${SERVICE_INTERNAL_PORT}"
+            SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+        depends_on:
+            resource-service:
+                condition: service_healthy
+            song-service:
+                condition: service_healthy
+            kafka:
+                condition: service_healthy
+        <<: *app-healthcheck-depends

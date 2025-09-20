@@ -21,3 +21,21 @@ services:
         url: ${RESOURCE_SERVICE_URL:http://localhost:8071}
     song-service:
         url: ${SONG_SERVICE_URL:http://localhost:8072}
+
+eureka:
+    client:
+        service-url:
+            defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+        fetch-registry: true
+        register-with-eureka: true
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health
+    endpoint:
+        health:
+            show-details: always
+            probes:
+                enabled: true
