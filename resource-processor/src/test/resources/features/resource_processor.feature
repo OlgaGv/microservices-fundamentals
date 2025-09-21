@@ -11,7 +11,7 @@ Feature: Resource processing
 
   Scenario: Ignore non-MP3 resource
     Given a resource ID "124" pointing to a non-MP3 file
-    When the resource processor consumes the resource ID
+    When the resource processor consumes the non-MP3 resource ID
     Then the resource is fetched from the resource service
     And the MP3 validation fails
     And no metadata is sent to the Song service

@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import com.learn.micro.resourceprocessor.client.ResourceClient;
 import com.learn.micro.resourceprocessor.client.SongClient;
+import com.learn.micro.resourceprocessor.kafka.event.EventType;
+import com.learn.micro.resourceprocessor.kafka.event.ResourceEvent;
 import com.learn.micro.resourceprocessor.model.MetadataDto;
 import com.learn.micro.resourceprocessor.service.MetadataService;
 import io.cucumber.java.en.Given;
@@ -51,7 +53,7 @@ public class ResourceConsumerSteps {
 
     @When("the resource processor consumes the resource ID")
     public void when_resource_processor_consumes_resource_id() {
-        resourceConsumer.consume(resourceId);
+        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE));
     }
 
     @Then("the resource is fetched from the resource service")
@@ -91,6 +93,11 @@ public class ResourceConsumerSteps {
         this.resourceId = id;
         resourceContent = new byte[]{0, 1, 2, 3}; // invalid MP3 content
         when(resourceClient.fetchResource(resourceId)).thenReturn(resourceContent);
+    }
+
+    @When("the resource processor consumes the non-MP3 resource ID")
+    public void when_resource_processor_consumes_non_mp3() {
+        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE));
     }
 
     @Then("the MP3 validation fails")

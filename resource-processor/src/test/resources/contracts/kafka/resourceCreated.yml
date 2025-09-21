@@ -1,6 +1,0 @@
-label: resourceCreated
-input:
-    triggeredBy: resourceCreatedEvent()
-outputMessage:
-    sentTo: resource-events
-    body: "123"
