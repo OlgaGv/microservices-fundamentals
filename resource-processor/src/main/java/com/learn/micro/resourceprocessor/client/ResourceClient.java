@@ -1,9 +1,10 @@
 package com.learn.micro.resourceprocessor.client;
 
 import com.learn.micro.resourceprocessor.exception.GeneralFailureException;
+import com.learn.micro.resourceprocessor.service.ServiceProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
@@ -11,7 +12,6 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.support.RetrySynchronizationManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 @Slf4j
@@ -19,18 +19,20 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class ResourceClient {
 
+    private static final String RESOURCE_SERVICE = "resource-service";
     private final RestTemplate restTemplate;
-
-    @Value("${services.resource-service.url}")
-    private String resourceServiceUrl;
+    private final ServiceProvider serviceProvider;
 
     @Retryable(
-        retryFor = {HttpServerErrorException.class, ResourceAccessException.class},
+        retryFor = {HttpServerErrorException.class, GeneralFailureException.class},
         maxAttempts = 3,
         backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public byte[] fetchResource(String resourceId) {
-        String url = resourceServiceUrl + "/resources/" + resourceId;
+
+        ServiceInstance resourceService = serviceProvider.getServiceInstance(RESOURCE_SERVICE);
+        String url = resourceService.getUri() + "/resources/" + resourceId;
+
         int attempt = RetrySynchronizationManager.getContext() != null
             ? RetrySynchronizationManager.getContext().getRetryCount() + 1
             : 1;

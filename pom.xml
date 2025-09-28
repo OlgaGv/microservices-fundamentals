@@ -17,5 +17,6 @@
     <module>resource-service</module>
     <module>resource-processor</module>
     <module>eureka-server</module>
+    <module>api-gateway</module>
   </modules>
 </project>

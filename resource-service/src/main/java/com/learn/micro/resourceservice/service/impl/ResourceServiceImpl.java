@@ -1,20 +1,10 @@
 package com.learn.micro.resourceservice.service.impl;
 
-import com.learn.micro.resourceservice.kafka.ResourceProducer;
-import com.learn.micro.resourceservice.service.S3Service;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.rest.webmvc.ResourceNotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.learn.micro.resourceservice.entity.ResourceEntity;
 import com.learn.micro.resourceservice.exception.GeneralFailureException;
+import com.learn.micro.resourceservice.kafka.ResourceProducer;
+import com.learn.micro.resourceservice.kafka.event.EventType;
+import com.learn.micro.resourceservice.kafka.event.ResourceEvent;
 import com.learn.micro.resourceservice.mapper.ResourceMapper;
 import com.learn.micro.resourceservice.model.DeleteResourceResponse;
 import com.learn.micro.resourceservice.model.GetResourceResponse;
@@ -22,6 +12,16 @@ import com.learn.micro.resourceservice.model.UploadResourceResponse;
 import com.learn.micro.resourceservice.repository.ResourceRepository;
 import com.learn.micro.resourceservice.service.MessageHelper;
 import com.learn.micro.resourceservice.service.ResourceService;
+import com.learn.micro.resourceservice.service.S3Service;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.rest.webmvc.ResourceNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -65,7 +65,8 @@ public class ResourceServiceImpl implements ResourceService {
             ResourceEntity resourceEntity = new ResourceEntity();
             resourceEntity.setS3Location(s3Location);
             savedResource = resourceRepository.save(resourceEntity);
-            resourceProducer.publish(String.valueOf(savedResource.getId()));
+            ResourceEvent event = new ResourceEvent(String.valueOf(savedResource.getId()), EventType.CREATE);
+            resourceProducer.publish(event);
         } catch (Exception e) {
             throw new GeneralFailureException(messageHelper.getMessage("server.error.general"));
         }
@@ -82,6 +83,8 @@ public class ResourceServiceImpl implements ResourceService {
                 try {
                     resourceRepository.deleteById(entityToDelete.getId());
                     s3Service.deleteMp3File(entityToDelete.getS3Location());
+                    ResourceEvent event = new ResourceEvent(String.valueOf(entityToDelete.getId()), EventType.DELETE);
+                    resourceProducer.publish(event);
                     deletedIds.add(entityToDelete.getId());
                 } catch (Exception e) {
                     log.error("Failed to delete file with ID: {}", entityToDelete.getId(), e);

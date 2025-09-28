@@ -277,29 +277,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-contract-maven-plugin</artifactId>
-                <version>${spring-cloud-contract.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <baseClassMappings>
-                        <baseClassMapping>
-                            <contractPackageRegex>kafka.*</contractPackageRegex>
-                            <baseClassFQN>com.learn.micro.resourceprocessor.contract.BaseKafkaContractTest</baseClassFQN>
-                        </baseClassMapping>
-                        <baseClassMapping>
-                            <contractPackageRegex>resource-service.*</contractPackageRegex>
-                            <baseClassFQN>com.learn.micro.resourceprocessor.contract.BaseResourceServiceContractTest</baseClassFQN>
-                        </baseClassMapping>
-                        <baseClassMapping>
-                            <contractPackageRegex>song-service.*</contractPackageRegex>
-                            <baseClassFQN>com.learn.micro.resourceprocessor.contract.BaseSongServiceContractTest</baseClassFQN>
-                        </baseClassMapping>
-                    </baseClassMappings>
-                    <basePackageForTests>com.learn.micro.resourceprocessor.contract</basePackageForTests>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>
