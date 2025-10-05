@@ -64,6 +64,25 @@ services:
         networks:
             - microservices-net
 
+    storage-db:
+        image: postgres:17-alpine
+        container_name: storage-db
+        environment:
+            POSTGRES_DB: ${STORAGE_DB_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - "5434:5432"
+        volumes:
+            - ./init-scripts/storage-db:/docker-entrypoint-initdb.d/ # Mount initialization scripts
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${STORAGE_DB_NAME}" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - microservices-net
+
     zookeeper:
         image: bitnami/zookeeper:latest
         container_name: zookeeper
@@ -210,6 +229,29 @@ services:
             song-service:
                 condition: service_healthy
             kafka:
+                condition: service_healthy
+        <<: *app-healthcheck-depends
+        networks:
+            - microservices-net
+
+    storage-service:
+        build:
+            context: ./storage-service
+            dockerfile: Dockerfile
+        container_name: storage-service
+        ports:
+            - "${STORAGE_SERVICE_PORT}:${SERVICE_INTERNAL_PORT}"
+        environment:
+            SPRING_DATASOURCE_URL: ${STORAGE_DB_URL}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            SERVER_PORT: ${SERVICE_INTERNAL_PORT}
+            DATABASE_HOST: ${STORAGE_DB_HOST}
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+        depends_on:
+            storage-db:
+                condition: service_healthy
+            eureka-server:
                 condition: service_healthy
         <<: *app-healthcheck-depends
         networks:
