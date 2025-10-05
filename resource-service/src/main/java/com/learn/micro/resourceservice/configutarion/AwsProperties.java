@@ -13,14 +13,7 @@ public class AwsProperties {
 
     private String region;
     private String endpoint;
-    private S3Properties s3Properties;
     private Credentials credentials;
-
-    @Getter
-    @Setter
-    public static class S3Properties {
-        private String bucket;
-    }
 
     @Getter
     @Setter

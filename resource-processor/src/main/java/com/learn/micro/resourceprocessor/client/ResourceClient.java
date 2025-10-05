@@ -29,10 +29,8 @@ public class ResourceClient {
         backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public byte[] fetchResource(String resourceId) {
-
         ServiceInstance resourceService = serviceProvider.getServiceInstance(RESOURCE_SERVICE);
         String url = resourceService.getUri() + "/resources/" + resourceId;
-
         int attempt = RetrySynchronizationManager.getContext() != null
             ? RetrySynchronizationManager.getContext().getRetryCount() + 1
             : 1;

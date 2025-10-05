@@ -25,4 +25,7 @@ public class ResourceEntity {
 
     @Column(name = "s3_location", nullable = false)
     private String s3Location;
+
+    @Column(name = "stage", nullable = false)
+    private String stage;
 }

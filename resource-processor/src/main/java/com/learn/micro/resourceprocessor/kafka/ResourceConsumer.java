@@ -18,6 +18,7 @@ public class ResourceConsumer {
     private final MetadataService metadataService;
     private final ResourceClient resourceClient;
     private final SongClient songClient;
+    private final ResourceProducer resourceProducer;
 
     @KafkaListener(
         id = "resourceEventListener",
@@ -37,7 +38,6 @@ public class ResourceConsumer {
         } catch (Exception e) {
             log.error("Failed to process event={} with resourceId={}: {}",
                 resourceEvent.eventType(), resourceEvent.resourceId(), e.getMessage(), e);
-//            throw new GeneralFailureException(e);
         }
     }
 
@@ -56,6 +56,8 @@ public class ResourceConsumer {
         log.info("Inside ResourceConsumer: perform sync call to song client");
         songClient.saveSongMetadata(metadata);
         log.info("Saved metadata for resourceId={} to SongService", resourceEvent.resourceId());
+        resourceProducer.publishProcessingComplete(resourceEvent.resourceId());
+        log.info("Published processing complete event for resourceId={}", resourceEvent.resourceId());
     }
 
     public void processDeleteResource(ResourceEvent resourceEvent) {
@@ -63,13 +65,4 @@ public class ResourceConsumer {
         songClient.deleteSongMetadata(Integer.valueOf(resourceEvent.resourceId()));
         log.info("Saved metadata for resourceId={} to SongService", resourceEvent.resourceId());
     }
-
-//    @KafkaListener(topics = "${spring.kafka.topic}",
-//        groupId = "${spring.kafka.consumer.group-id}",
-//        containerFactory = "kafkaListenerContainerFactory")
-//    public void consume(ConsumerRecord<String, String> consumerRecord) {
-//        String resourceId = consumerRecord.value();
-//        log.info("Received resourceId {}", resourceId);
-//        throw new GeneralFailureException("Simulate failure");
-//    }
 }

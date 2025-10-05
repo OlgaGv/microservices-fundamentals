@@ -248,10 +248,15 @@ services:
             SERVER_PORT: ${SERVICE_INTERNAL_PORT}
             DATABASE_HOST: ${STORAGE_DB_HOST}
             EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL}
+            AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+            AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+            AWS_SECRET_KEY: ${AWS_SECRET_KEY}
         depends_on:
             storage-db:
                 condition: service_healthy
             eureka-server:
+                condition: service_healthy
+            localstack:
                 condition: service_healthy
         <<: *app-healthcheck-depends
         networks:
