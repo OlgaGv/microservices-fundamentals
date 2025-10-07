@@ -6,18 +6,24 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 @Slf4j
@@ -27,6 +33,8 @@ public class KafkaConfig {
 
     private static final int RETRY_ATTEMPTS = 3;
     private static final long RETRY_INTERVAL_MS = 3000L;
+
+    private final KafkaProperties kafkaProperties;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -44,20 +52,37 @@ public class KafkaConfig {
         configProps.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
         configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ResourceEvent.class);
         configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        return new DefaultKafkaConsumerFactory<>(configProps, new StringDeserializer(), new JsonDeserializer<>(ResourceEvent.class, false));
+
+        return new DefaultKafkaConsumerFactory<>(
+            configProps,
+            new StringDeserializer(),
+            new JsonDeserializer<>(ResourceEvent.class, false)
+        );
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ResourceEvent> kafkaListenerContainerFactory(
-        KafkaTemplate<String, String> kafkaTemplate) {
+    public ProducerFactory<String, ResourceEvent> producerFactory() {
+        Map<String, Object> props = kafkaProperties.buildProducerProperties();
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean
+    public KafkaTemplate<String, ResourceEvent> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ResourceEvent> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, ResourceEvent> factory =
             new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate());
         DefaultErrorHandler errorHandler =
             new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, RETRY_ATTEMPTS));
         errorHandler.setRetryListeners((consumerRecord, ex, deliveryAttempt) -> {
-            if (deliveryAttempt > 3) {
+            if (deliveryAttempt > RETRY_ATTEMPTS) {
                 log.error("Retries exhausted: sending record {} to DLT", consumerRecord.value());
             } else {
                 log.info("Retry attempt {} for record with value '{}'",

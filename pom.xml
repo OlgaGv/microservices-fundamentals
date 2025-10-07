@@ -16,6 +16,7 @@
     <module>song-service</module>
     <module>resource-service</module>
     <module>resource-processor</module>
+    <module>storage-service</module>
     <module>eureka-server</module>
     <module>api-gateway</module>
   </modules>

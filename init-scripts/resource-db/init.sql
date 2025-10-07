@@ -2,5 +2,6 @@
 CREATE TABLE resource
 (
     id          SERIAL PRIMARY KEY,
-    s3_location VARCHAR(255) NOT NULL
+    s3_location VARCHAR(255) NOT NULL,
+    stage       VARCHAR(255) NOT NULL
 );

@@ -1,4 +1,4 @@
-package com.learn.micro.resourceservice.configutarion;
+package com.learn.micro.storageservice.configuration;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -13,7 +13,14 @@ public class AwsProperties {
 
     private String region;
     private String endpoint;
+    private S3Properties s3Properties;
     private Credentials credentials;
+
+    @Getter
+    @Setter
+    public static class S3Properties {
+        private String bucket;
+    }
 
     @Getter
     @Setter

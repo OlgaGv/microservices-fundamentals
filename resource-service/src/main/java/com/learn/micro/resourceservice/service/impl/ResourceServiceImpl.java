@@ -1,5 +1,6 @@
 package com.learn.micro.resourceservice.service.impl;
 
+import com.learn.micro.resourceservice.client.StorageClient;
 import com.learn.micro.resourceservice.entity.ResourceEntity;
 import com.learn.micro.resourceservice.exception.GeneralFailureException;
 import com.learn.micro.resourceservice.kafka.ResourceProducer;
@@ -8,6 +9,7 @@ import com.learn.micro.resourceservice.kafka.event.ResourceEvent;
 import com.learn.micro.resourceservice.mapper.ResourceMapper;
 import com.learn.micro.resourceservice.model.DeleteResourceResponse;
 import com.learn.micro.resourceservice.model.GetResourceResponse;
+import com.learn.micro.resourceservice.model.Storage;
 import com.learn.micro.resourceservice.model.UploadResourceResponse;
 import com.learn.micro.resourceservice.repository.ResourceRepository;
 import com.learn.micro.resourceservice.service.MessageHelper;
@@ -28,17 +30,44 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ResourceServiceImpl implements ResourceService {
 
+    private static final String STAGING_STORAGE = "STAGING";
+    private static final String PERMANENT_STORAGE = "PERMANENT";
     private final ResourceRepository resourceRepository;
     private final ResourceMapper resourceMapper;
     private final ResourceProducer resourceProducer;
     private final MessageHelper messageHelper;
     private final S3Service s3Service;
+    private final StorageClient storageClient;
+
+    @Override
+    @Transactional
+    public UploadResourceResponse save(byte[] fileContent) {
+        if (!isValidMp3(fileContent)) {
+            throw new IllegalArgumentException(messageHelper.getMessage("validation.mp3.invalid"));
+        }
+        ResourceEntity savedResource;
+        try {
+            Storage stagingStorage = storageClient.fetchStorage(STAGING_STORAGE);
+            String fullPath = s3Service.uploadMp3File(fileContent, stagingStorage);
+            ResourceEntity resourceEntity = new ResourceEntity();
+            resourceEntity.setS3Location(fullPath);
+            resourceEntity.setStage(stagingStorage.storageType());
+            savedResource = resourceRepository.save(resourceEntity);
+            ResourceEvent event = new ResourceEvent(String.valueOf(savedResource.getId()), EventType.CREATE);
+            resourceProducer.publish(event);
+            log.info("File uploaded to STAGING and event published for resourceId={}", savedResource.getId());
+        } catch (Exception e) {
+            log.error("Error while saving resource", e);
+            throw new GeneralFailureException(messageHelper.getMessage("server.error.general"));
+        }
+        return resourceMapper.mapEntityToUploadResourceDto(savedResource);
+    }
 
     @Override
     public GetResourceResponse findById(String id) {
         if (!isValidId(id)) {
             throw new IllegalArgumentException(
-                    MessageFormat.format(messageHelper.getMessage("validation.id.invalid"), id));
+                MessageFormat.format(messageHelper.getMessage("validation.id.invalid"), id));
         }
         int resourceId = Integer.parseInt(id);
         String s3Location;
@@ -49,28 +78,8 @@ public class ResourceServiceImpl implements ResourceService {
         } catch (Exception e) {
             throw new GeneralFailureException("Failed to download MP3 from S3: ", e);
         }
-        return new GetResourceResponse(s3Service.downloadMp3File(s3Location));
-    }
-
-    @Override
-    @Transactional
-    public UploadResourceResponse save(byte[] fileContent) {
-        if (!isValidMp3(fileContent)) {
-            throw new IllegalArgumentException(messageHelper.getMessage("validation.mp3.invalid"));
-        }
-        String s3Location;
-        ResourceEntity savedResource;
-        try {
-            s3Location = s3Service.uploadMp3File(fileContent);
-            ResourceEntity resourceEntity = new ResourceEntity();
-            resourceEntity.setS3Location(s3Location);
-            savedResource = resourceRepository.save(resourceEntity);
-            ResourceEvent event = new ResourceEvent(String.valueOf(savedResource.getId()), EventType.CREATE);
-            resourceProducer.publish(event);
-        } catch (Exception e) {
-            throw new GeneralFailureException(messageHelper.getMessage("server.error.general"));
-        }
-        return resourceMapper.mapEntityToUploadResourceDto(savedResource);
+        Storage storage = storageClient.fetchStorage(STAGING_STORAGE);
+        return new GetResourceResponse(s3Service.downloadMp3File(s3Location, storage));
     }
 
     @Override
@@ -82,7 +91,8 @@ public class ResourceServiceImpl implements ResourceService {
         for (ResourceEntity entityToDelete : filesToDelete) {
                 try {
                     resourceRepository.deleteById(entityToDelete.getId());
-                    s3Service.deleteMp3File(entityToDelete.getS3Location());
+                    Storage storage = storageClient.fetchStorage(STAGING_STORAGE);
+                    s3Service.deleteMp3File(entityToDelete.getS3Location(), storage);
                     ResourceEvent event = new ResourceEvent(String.valueOf(entityToDelete.getId()), EventType.DELETE);
                     resourceProducer.publish(event);
                     deletedIds.add(entityToDelete.getId());
