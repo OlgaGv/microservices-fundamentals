@@ -3,11 +3,15 @@ package com.learn.micro.resourceprocessor.kafka;
 import com.learn.micro.resourceprocessor.client.ResourceClient;
 import com.learn.micro.resourceprocessor.client.SongClient;
 import com.learn.micro.resourceprocessor.kafka.event.ResourceEvent;
+import com.learn.micro.resourceprocessor.logging.TraceContext;
 import com.learn.micro.resourceprocessor.model.MetadataDto;
 import com.learn.micro.resourceprocessor.service.MetadataService;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -25,7 +29,15 @@ public class ResourceConsumer {
         topics = "${spring.kafka.topic}",
         groupId = "${spring.kafka.consumer.group-id}",
         containerFactory = "kafkaListenerContainerFactory")
-    public void consume(ResourceEvent resourceEvent) {
+    public void consume(ResourceEvent resourceEvent, @Header("X-Trace-Id") String traceId) {
+        if (traceId == null || traceId.isEmpty()) {
+            traceId = UUID.randomUUID().toString();
+            log.info("Generated new traceId for Kafka message: {}", traceId);
+        } else {
+            log.info("Using traceId from upstream Kafka message: {}", traceId);
+        }
+        TraceContext.setTraceId(traceId);
+        MDC.put("traceId", traceId);
         log.info("Inside ResourceConsumer: Received ResourceEvent with resourceId={}, type={}",
             resourceEvent.resourceId(), resourceEvent.eventType());
         try {
@@ -38,6 +50,9 @@ public class ResourceConsumer {
         } catch (Exception e) {
             log.error("Failed to process event={} with resourceId={}: {}",
                 resourceEvent.eventType(), resourceEvent.resourceId(), e.getMessage(), e);
+        } finally {
+            MDC.remove("traceId");
+            TraceContext.clear();
         }
     }
 

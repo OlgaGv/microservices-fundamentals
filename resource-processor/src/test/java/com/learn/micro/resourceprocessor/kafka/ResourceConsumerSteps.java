@@ -53,7 +53,7 @@ public class ResourceConsumerSteps {
 
     @When("the resource processor consumes the resource ID")
     public void when_resource_processor_consumes_resource_id() {
-        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE));
+        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE), "traceId");
     }
 
     @Then("the resource is fetched from the resource service")
@@ -97,7 +97,7 @@ public class ResourceConsumerSteps {
 
     @When("the resource processor consumes the non-MP3 resource ID")
     public void when_resource_processor_consumes_non_mp3() {
-        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE));
+        resourceConsumer.consume(new ResourceEvent(resourceId, EventType.CREATE),"traceId");
     }
 
     @Then("the MP3 validation fails")
