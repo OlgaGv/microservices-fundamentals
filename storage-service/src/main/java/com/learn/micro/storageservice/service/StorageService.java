@@ -1,12 +1,14 @@
 package com.learn.micro.storageservice.service;
 
-import com.learn.micro.storageservice.entity.Storage;
+import com.learn.micro.storageservice.model.CreateStorageRequest;
+import com.learn.micro.storageservice.model.CreateStorageResponse;
+import com.learn.micro.storageservice.model.StorageResponse;
 import java.util.List;
 
 public interface StorageService {
 
-    Storage createStorage(Storage storage);
-    List<Storage> getAllStorages();
+    CreateStorageResponse createStorage(CreateStorageRequest request);
+    List<StorageResponse> getAllStorages();
     List<Long> deleteStorages(List<Long> ids);
-    Storage getStorageByType(String type);
+    StorageResponse getStorageByType(String type);
 }

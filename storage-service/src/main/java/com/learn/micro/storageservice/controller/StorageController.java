@@ -1,10 +1,11 @@
 package com.learn.micro.storageservice.controller;
 
-import com.learn.micro.storageservice.entity.Storage;
+import com.learn.micro.storageservice.model.CreateStorageRequest;
+import com.learn.micro.storageservice.model.CreateStorageResponse;
+import com.learn.micro.storageservice.model.StorageResponse;
 import com.learn.micro.storageservice.service.impl.StorageServiceImpl;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,18 +27,18 @@ public class StorageController {
     private final StorageServiceImpl storageService;
 
     @PostMapping
-    public ResponseEntity<Map<String, Long>> createStorage(@RequestBody Storage storage) {
-        Storage created = storageService.createStorage(storage);
-        return ResponseEntity.ok(Map.of("id", created.getId()));
+    public ResponseEntity<CreateStorageResponse> createStorage(@RequestBody CreateStorageRequest request) {
+        CreateStorageResponse response = storageService.createStorage(request);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<Storage>> getAllStorages() {
+    public ResponseEntity<List<StorageResponse>> getAllStorages() {
         return ResponseEntity.ok(storageService.getAllStorages());
     }
 
     @GetMapping("/type/{type}")
-    public ResponseEntity<Storage> getStorageByType(@PathVariable String type) {
+    public ResponseEntity<StorageResponse> getStorageByType(@PathVariable String type) {
         return ResponseEntity.ok(storageService.getStorageByType(type));
     }
 
@@ -48,6 +49,8 @@ public class StorageController {
             return ResponseEntity.badRequest().build();
         }
         List<Long> ids = Arrays.stream(id.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
             .map(Long::parseLong)
             .toList();
         List<Long> deletedIds = storageService.deleteStorages(ids);

@@ -1,6 +1,6 @@
 package com.learn.micro.storageservice.configuration;
 
-import com.learn.micro.storageservice.entity.Storage;
+import com.learn.micro.storageservice.entity.StorageEntity;
 import com.learn.micro.storageservice.repository.StorageRepository;
 import java.net.URI;
 import java.util.List;
@@ -39,7 +39,7 @@ public class AwsS3Config {
     @Bean
     public CommandLineRunner initStorages(StorageRepository repository, S3Client s3Client) {
         return args -> {
-            List<Storage> storages = repository.findAll();
+            List<StorageEntity> storages = repository.findAll();
             if (storages.isEmpty()) {
                 log.warn("No storage records found in database. Skipping bucket creation.");
                 return;
