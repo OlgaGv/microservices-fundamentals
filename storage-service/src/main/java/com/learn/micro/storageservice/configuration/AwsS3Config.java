@@ -4,6 +4,7 @@ import com.learn.micro.storageservice.entity.StorageEntity;
 import com.learn.micro.storageservice.repository.StorageRepository;
 import java.net.URI;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class AwsS3Config {
 
     StorageRepository storageRepository;
