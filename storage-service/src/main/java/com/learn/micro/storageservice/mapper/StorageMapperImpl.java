@@ -4,7 +4,9 @@ import com.learn.micro.storageservice.entity.StorageEntity;
 import com.learn.micro.storageservice.model.CreateStorageRequest;
 import com.learn.micro.storageservice.model.CreateStorageResponse;
 import com.learn.micro.storageservice.model.StorageResponse;
+import org.springframework.stereotype.Component;
 
+@Component
 public class StorageMapperImpl implements StorageMapper {
 
     @Override
