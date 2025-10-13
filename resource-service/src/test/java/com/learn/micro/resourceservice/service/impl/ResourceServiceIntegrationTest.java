@@ -15,6 +15,7 @@ import com.learn.micro.resourceservice.entity.ResourceEntity;
 import com.learn.micro.resourceservice.kafka.ResourceProducer;
 import com.learn.micro.resourceservice.model.DeleteResourceResponse;
 import com.learn.micro.resourceservice.model.GetResourceResponse;
+import com.learn.micro.resourceservice.model.Storage;
 import com.learn.micro.resourceservice.model.UploadResourceResponse;
 import com.learn.micro.resourceservice.repository.ResourceRepository;
 import com.learn.micro.resourceservice.service.ResourceService;
@@ -31,6 +32,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ActiveProfiles("test")
 class ResourceServiceIntegrationTest {
 
+    private static final Storage stagingStorage = new Storage("STAGING","staging-bucket","/files");
     @Autowired
     private ResourceService resourceService;
 
@@ -58,14 +60,14 @@ class ResourceServiceIntegrationTest {
         // given
         byte[] mp3File = new byte[]{'I', 'D', '3', 0, 0, 0};
         String mockS3Location = "test-bucket/test-file.mp3";
-        when(s3Service.uploadMp3File(mp3File)).thenReturn(mockS3Location);
+        when(s3Service.uploadMp3File(mp3File, stagingStorage)).thenReturn(mockS3Location);
         // when
         UploadResourceResponse response = resourceService.save(mp3File);
         // then
         assertNotNull(response);
         ResourceEntity savedEntity = resourceRepository.findById(response.id()).orElseThrow();
         assertEquals(mockS3Location, savedEntity.getS3Location());
-        verify(s3Service).uploadMp3File(mp3File);
+        verify(s3Service).uploadMp3File(mp3File, stagingStorage);
     }
 
     /**
@@ -77,14 +79,14 @@ class ResourceServiceIntegrationTest {
         // given
         byte[] mp3File = new byte[]{'I', 'D', '3', 0, 0, 0};
         String s3Location = "test-bucket/test-file.mp3";
-        ResourceEntity entity = resourceRepository.save(new ResourceEntity(null, s3Location));
-        when(s3Service.downloadMp3File(s3Location)).thenReturn(mp3File);
+        ResourceEntity entity = resourceRepository.save(new ResourceEntity(null, s3Location, "STAGING"));
+        when(s3Service.downloadMp3File(s3Location, stagingStorage)).thenReturn(mp3File);
         // when
         GetResourceResponse response = resourceService.findById(entity.getId().toString());
         // then
         assertNotNull(response);
         assertArrayEquals(mp3File, response.content());
-        verify(s3Service).downloadMp3File(s3Location);
+        verify(s3Service).downloadMp3File(s3Location, stagingStorage);
     }
 
     /**
@@ -95,14 +97,14 @@ class ResourceServiceIntegrationTest {
     void whenDeleteRemoveFromDbAndS3() {
         // given
         String s3Location = "test-bucket/test-file.mp3";
-        ResourceEntity entity = resourceRepository.save(new ResourceEntity(null, s3Location));
-        doNothing().when(s3Service).deleteMp3File(s3Location);
+        ResourceEntity entity = resourceRepository.save(new ResourceEntity(null, s3Location, "STAGING"));
+        doNothing().when(s3Service).deleteMp3File(s3Location, stagingStorage);
         // when
         DeleteResourceResponse response = resourceService.delete(entity.getId().toString());
         // then
         assertEquals(List.of(entity.getId()), response.ids());
         assertFalse(resourceRepository.existsById(entity.getId()));
-        verify(s3Service).deleteMp3File(s3Location);
+        verify(s3Service).deleteMp3File(s3Location, stagingStorage);
     }
 
     /**
@@ -114,7 +116,7 @@ class ResourceServiceIntegrationTest {
         byte[] invalidFile = new byte[]{0, 1, 2, 3};
         // when and then
         assertThrows(IllegalArgumentException.class, () -> resourceService.save(invalidFile));
-        verify(s3Service, never()).uploadMp3File(any());
+        verify(s3Service, never()).uploadMp3File(any(),any());
     }
 
     /**
@@ -139,6 +141,6 @@ class ResourceServiceIntegrationTest {
         DeleteResourceResponse response = resourceService.delete(nonExistentId);
         // then
         assertEquals(List.of(), response.ids());
-        verify(s3Service, never()).deleteMp3File(any());
+        verify(s3Service, never()).deleteMp3File(any(), any());
     }
 }
