@@ -1,7 +1,10 @@
 package com.learn.micro.storageservice.service.impl;
 
-import com.learn.micro.storageservice.entity.Storage;
-import com.learn.micro.storageservice.entity.StorageType;
+import com.learn.micro.storageservice.entity.StorageEntity;
+import com.learn.micro.storageservice.mapper.StorageMapper;
+import com.learn.micro.storageservice.model.CreateStorageRequest;
+import com.learn.micro.storageservice.model.CreateStorageResponse;
+import com.learn.micro.storageservice.model.StorageResponse;
 import com.learn.micro.storageservice.repository.StorageRepository;
 import com.learn.micro.storageservice.service.StorageService;
 import java.util.ArrayList;
@@ -16,18 +19,27 @@ import org.springframework.stereotype.Service;
 public class StorageServiceImpl implements StorageService {
 
     private final StorageRepository storageRepository;
+    private final StorageMapper storageMapper;
 
-    public Storage createStorage(Storage storage) {
-        if (storageRepository.findByStorageType(storage.getStorageType()).isPresent()) {
+    @Override
+    public CreateStorageResponse createStorage(CreateStorageRequest request) {
+        validateCreateRequest(request);
+        if (storageRepository.findByStorageType(request.storageType()).isPresent()) {
             throw new IllegalArgumentException("Storage type already exists");
         }
-        return storageRepository.save(storage);
+        StorageEntity entity = storageMapper.mapCreateRequestToEntity(request);
+        StorageEntity saved = storageRepository.save(entity);
+        return storageMapper.mapEntityToCreateStorageDto(saved);
     }
 
-    public List<Storage> getAllStorages() {
-        return storageRepository.findAll();
+    @Override
+    public List<StorageResponse> getAllStorages() {
+        return storageRepository.findAll().stream()
+            .map(storageMapper::mapEntityToResponse)
+            .toList();
     }
 
+    @Override
     public List<Long> deleteStorages(List<Long> ids) {
         List<Long> deletedIds = new ArrayList<>();
         for (Long id : ids) {
@@ -39,8 +51,21 @@ public class StorageServiceImpl implements StorageService {
         return deletedIds;
     }
 
-    public Storage getStorageByType(String type) {
-        return storageRepository.findByStorageType(type)
+    @Override
+    public StorageResponse getStorageByType(String type) {
+        return storageRepository.findByStorageType(type).map(storageMapper::mapEntityToResponse)
             .orElseThrow(() -> new IllegalArgumentException("Storage type not found: " + type));
+    }
+
+    private void validateCreateRequest(CreateStorageRequest request) {
+        if (request.storageType() == null || request.storageType().isBlank()) {
+            throw new IllegalArgumentException("storageType must not be null or blank");
+        }
+        if (request.bucket() == null || request.bucket().isBlank()) {
+            throw new IllegalArgumentException("bucket must not be null or blank");
+        }
+        if (request.path() == null || request.path().isBlank()) {
+            throw new IllegalArgumentException("path must not be null or blank");
+        }
     }
 }
