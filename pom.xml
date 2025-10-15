@@ -19,5 +19,6 @@
     <module>storage-service</module>
     <module>eureka-server</module>
     <module>api-gateway</module>
+    <module>authorization-server</module>
   </modules>
 </project>
