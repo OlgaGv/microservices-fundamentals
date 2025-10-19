@@ -41,7 +41,6 @@ public class StorageController {
     }
 
     @GetMapping("/type/{type}")
-    @PreAuthorize("hasAnyRole('ADMIN','USER')")
     public ResponseEntity<StorageResponse> getStorageByType(@PathVariable String type) {
         return ResponseEntity.ok(storageService.getStorageByType(type));
     }

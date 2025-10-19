@@ -5,6 +5,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -36,6 +37,9 @@ import java.util.*;
 public class AuthorizationServerConfig {
 
     public static final String NOOP_PASSWORD = "{noop}password";
+
+    @Value("${AUTH_ISSUER_URI:http://localhost:9000}")
+    private String issuerUri;
 
     @Bean
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -121,7 +125,7 @@ public class AuthorizationServerConfig {
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder()
-            .issuer("http://localhost:9000")
+            .issuer(issuerUri)
             .jwkSetEndpoint("/.well-known/jwks.json") // default
             .build();
     }

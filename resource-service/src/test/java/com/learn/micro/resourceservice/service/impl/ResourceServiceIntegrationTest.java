@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.learn.micro.resourceservice.client.StorageClient;
 import com.learn.micro.resourceservice.entity.ResourceEntity;
 import com.learn.micro.resourceservice.kafka.ResourceProducer;
 import com.learn.micro.resourceservice.model.DeleteResourceResponse;
@@ -45,9 +46,13 @@ class ResourceServiceIntegrationTest {
     @MockitoBean
     private ResourceProducer resourceProducer;
 
+    @MockitoBean
+    private StorageClient storageClient;
+
     @BeforeEach
     void setUp() {
         resourceRepository.deleteAll();
+        when(storageClient.fetchStorage("STAGING")).thenReturn(stagingStorage);
     }
 
     /**

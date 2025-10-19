@@ -27,6 +27,9 @@ services:
   song-service:
     url: http://localhost:8072
 
+  storage-service:
+    url: http://localhost:8074
+
 # Mock S3 configuration for tests
 aws:
   s3-properties:
@@ -42,3 +45,5 @@ logging:
     root: INFO
     com.learn.micro.resourceservice: DEBUG
     org.springframework.test: DEBUG
+  config:
+    classpath: logback-test.xml

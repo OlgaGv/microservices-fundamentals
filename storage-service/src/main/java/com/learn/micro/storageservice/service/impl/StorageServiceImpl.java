@@ -23,6 +23,7 @@ public class StorageServiceImpl implements StorageService {
 
     @Override
     public CreateStorageResponse createStorage(CreateStorageRequest request) {
+        log.info("Try to create storage: {}", request);
         validateCreateRequest(request);
         if (storageRepository.findByStorageType(request.storageType()).isPresent()) {
             throw new IllegalArgumentException("Storage type already exists");
@@ -34,6 +35,7 @@ public class StorageServiceImpl implements StorageService {
 
     @Override
     public List<StorageResponse> getAllStorages() {
+        log.info("Getting all storages");
         return storageRepository.findAll().stream()
             .map(storageMapper::mapEntityToResponse)
             .toList();
@@ -41,6 +43,7 @@ public class StorageServiceImpl implements StorageService {
 
     @Override
     public List<Long> deleteStorages(List<Long> ids) {
+        log.info("Deleting storages with ids: {}", ids);
         List<Long> deletedIds = new ArrayList<>();
         for (Long id : ids) {
             if (storageRepository.existsById(id)) {
@@ -53,6 +56,7 @@ public class StorageServiceImpl implements StorageService {
 
     @Override
     public StorageResponse getStorageByType(String type) {
+        log.info("Getting storage by type: {}", type);
         return storageRepository.findByStorageType(type).map(storageMapper::mapEntityToResponse)
             .orElseThrow(() -> new IllegalArgumentException("Storage type not found: " + type));
     }

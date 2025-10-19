@@ -22,8 +22,10 @@ public class StorageClient {
 
     @CircuitBreaker(name = STORAGE_CB, fallbackMethod = "fetchStorageFallback")
     public Storage fetchStorage(String storageType) {
+        log.info("Fetching storage for type {}", storageType);
         ServiceInstance storageService = serviceProvider.getServiceInstance(STORAGE_SERVICE);
         String url = storageService.getUri() + "/storages/type/" + storageType;
+        log.info("Fetching storage from url: {}", url);
         log.info("Storage URL: {}", url);
         ResponseEntity<Storage> response =
             restTemplate.getForEntity(url, Storage.class);
