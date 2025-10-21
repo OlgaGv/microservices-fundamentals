@@ -1,0 +1,47 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.9.8
+
+      - name: Build and Test
+        run: |
+          echo "Building all modules and running tests"
+          mvn --batch-mode -T 1C clean verify -Dmaven.test.failure.ignore=false
+
+      - name: Test results
+        uses: dorny/test-reporter@v1
+        with:
+          name: 'Test results'
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: 'java-junit'
+          fail-on-error: true
+          only-summary: true
+          fail-on-empty: false
+          token: ${{ secrets.GITHUB_TOKEN }}
